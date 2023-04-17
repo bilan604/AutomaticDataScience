@@ -26,7 +26,6 @@ df_test = pd.read_csv("sample_data/california_housing_test.csv")
 df.head()
 
 response_variable_name = "median_house_value"
-use_neural_networks = triu_indices_from
 categorical_col_names = ""
 
 
@@ -53,9 +52,9 @@ class DataScienceHelper(object):
     self.col_names = {name: i for i, name in enumerate(list(df.columns))}
     self.encoders = {"OneHot": OneHotEncoder, "Ordinal": OrdinalEncoder}
     self.regressionModels = {
-        "fast_models": [LinearRegression(), Lasso(), Ridge()],
-        "models": [LogisticRegression()],
-        "ensembles": [AdaBoostRegressor(), GradientBoostingRegressor()],
+        "linear models": [LinearRegression(), Lasso(), Ridge()],
+        "logistic_models": [LogisticRegression()],
+        "decision_tree_ensembles": [AdaBoostRegressor(), GradientBoostingRegressor()],
         "neural_networks": [MLPRegressor()]
     }
     self.classificationModels = {
@@ -105,6 +104,20 @@ class DataScienceHelper(object):
     return
 
   def ordinallyEncode(self, j):
+    if j == self.categorical_col_names[self.response_variable_name]:
+      step = 0
+      vis = {}
+      for i in range(len(self.y)):
+        if self.y[i][0] not in vis:
+          vis[self.y[i][0]] = step
+          step += 1
+      
+      new_y = []
+      for i in range(len(self.y)):
+        new_y += [vis[self.y[i][0]]]
+      self.y = np.array(new_y).reshape(len(new_y), 1)
+      return self.y
+        
     ordinal_value = 0
     vis = {}
     for i in range(len(self.X)):
@@ -142,16 +155,17 @@ class DataScienceHelper(object):
       models = self.regressionModels
       
     for model_category in models.keys():
-      print("\nModel Type: " + model_category)
       for i in range(len(models[model_category])):
-        print(self.regressionModels[model_category][i])
+        print(models[model_category][i])
         models[model_category][i].fit(self.X_tr, self.y_tr)
         pred = models[model_category][i].predict(self.X_ts)
-        # warning to ravel from sklearn
         pred = self.unravel(pred)
         ans = self.unravel(self.y_ts)
-        self.showStatistic("error rate", pred, ans)
-        self.showStatistic("rmse", pred, ans)
+        if self.response_variable_name in self.categorical_col_names:
+          self.showStatistic("accuracy", pred, ans)
+        else:
+          self.showStatistic("error rate", pred, ans)
+          self.showStatistic("rmse", pred, ans)
     return self.get_models()
 
 
@@ -160,10 +174,10 @@ class DataScienceHelper(object):
       self.X_tr, self.X_ts, self.y_tr, self.y_ts = train_test_split(self.X, self.y,  test_size=0.25, random_state=1)
       self.models = self.train_predict()
     else:
+      # Note: Categorical handling is not implemented for this yet
       for df_test in df_tests:
         self.X_tr = self.X
         self.y_tr = self.y
-        # ToDo: remember to handle categorical again
         df_cache = df_test.drop([self.response_variable_name], axis=1)
         self.X_ts = np.asarray(df_cache)
         self.y_ts = np.asarray(df_test[self.response_variable_name])
